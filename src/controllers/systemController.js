@@ -94,10 +94,10 @@ exports.adminLogin = (req, res) => {
   }
 };
 
-exports.triggerAbsentCronManual = (req, res) => {
+exports.triggerAbsentCronManual = async (req, res) => {
   try {
     const io = req.app.get('io');
-    const result = triggerAutoAbsentProcess(io);
+    const result = await triggerAutoAbsentProcess(io);
     return res.status(200).json({
       success: true,
       message: `Auto-Absent process executed manually. Marked ${result.markedAbsentCount} students as Absent.`,
