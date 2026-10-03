@@ -1,16 +1,26 @@
 const cron = require('node-cron');
 const { getDb, saveDb } = require('../config/db');
 
-async function triggerAutoAbsentProcess(io = null) {
+function timeToMinutes(timeStr) {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  return h * 60 + m;
+}
+
+async function triggerAutoAbsentProcess(io = null, targetDate = null) {
   const db = getDb();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = targetDate || new Date().toISOString().split('T')[0];
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: true });
+  const timeStr = db.settings.simulatedTime 
+    ? db.settings.simulatedTime + ' AM (Simulated)'
+    : now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: true });
 
   // Get all active registered students
   const registeredStudents = db.students || [];
 
-  // Get student IDs who already have attendance recorded for today
+  // Get student IDs who already have attendance recorded for today/targetDate
   const recordedStudentIds = new Set(
     db.attendance.filter(a => a.date === todayStr).map(a => a.studentId)
   );
@@ -21,16 +31,16 @@ async function triggerAutoAbsentProcess(io = null) {
   for (const student of registeredStudents) {
     if (!recordedStudentIds.has(student.id)) {
       const absentRecord = {
-        id: 'ATT-ABS-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        id: 'ATT-ABS-' + student.id + '-' + todayStr,
         studentId: student.id,
         studentName: student.name,
         course: student.course,
-        batch: student.batch,
+        batch: student.batch || '2024-2028',
         date: todayStr,
-        time: timeStr,
+        time: db.settings.autoAbsentTime ? db.settings.autoAbsentTime + ' AM' : timeStr,
         status: 'Absent',
         timestamp: now.toISOString(),
-        ipAddress: 'SYSTEM_CRON'
+        ipAddress: 'SYSTEM_AUTO_CRON'
       };
 
       db.attendance.push(absentRecord);
@@ -56,17 +66,20 @@ async function triggerAutoAbsentProcess(io = null) {
 }
 
 function initCronScheduler(io) {
-  // Cron expression: runs every minute to check if current time matches autoAbsentTime (e.g., 10:30 AM)
-  cron.schedule('* * * * *', () => {
+  // Cron expression: runs every minute to check if current time >= autoAbsentTime (e.g., 10:30 AM)
+  cron.schedule('* * * * *', async () => {
     try {
       const db = getDb();
       const autoAbsentTime = db.settings.autoAbsentTime || '10:30';
       const now = new Date();
       const currentHHMM = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit' });
+      const effectiveHHMM = db.settings.simulatedTime || currentHHMM;
 
-      if (currentHHMM === autoAbsentTime) {
-        console.log(`[Cron Job Triggered] Time matches auto-absent cutoff: ${currentHHMM}`);
-        triggerAutoAbsentProcess(io);
+      const currentMins = timeToMinutes(effectiveHHMM);
+      const absentMins = timeToMinutes(autoAbsentTime);
+
+      if (currentMins >= absentMins) {
+        await triggerAutoAbsentProcess(io);
       }
     } catch (err) {
       console.error('[Cron Job Error]:', err);

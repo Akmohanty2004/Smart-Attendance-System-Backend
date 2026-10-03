@@ -240,11 +240,26 @@ exports.calculateStatsHelper = (db, targetDate = null) => {
   };
 };
 
-exports.getDailyAttendance = (req, res) => {
+const { triggerAutoAbsentProcess } = require('../services/cronService');
+
+exports.getDailyAttendance = async (req, res) => {
   try {
     const db = getDb();
     const { date, status, search } = req.query;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDate = date || todayStr;
+
+    // Check if auto-absent process should run for targetDate
+    const now = new Date();
+    const currentIST_HHMM = getFormattedLocalTime(now);
+    const effectiveTimeStr = db.settings.simulatedTime || currentIST_HHMM;
+    const currentMins = timeToMinutes(effectiveTimeStr);
+    const absentMins = timeToMinutes(db.settings.autoAbsentTime || '10:30');
+
+    if (targetDate < todayStr || (targetDate === todayStr && currentMins >= absentMins) || (status && status.toLowerCase() === 'absent')) {
+      const io = req.app.get('io');
+      await triggerAutoAbsentProcess(io, targetDate);
+    }
 
     let records = db.attendance.filter(a => a.date === targetDate);
 
