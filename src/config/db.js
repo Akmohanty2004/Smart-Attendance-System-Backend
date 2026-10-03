@@ -168,27 +168,46 @@ async function syncFromMongo() {
   }
 }
 
-async function connectMongo() {
-  try {
-    console.log('⏳ Connecting to MongoDB Atlas cluster...');
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000
-    });
+let mongoConnectPromise = null;
+
+async function ensureMongoConnected() {
+  if (mongoose.connection.readyState === 1) {
     isMongoConnected = true;
-    console.log('🚀 Connected to MongoDB Atlas Cluster (smartasys.e5pujmm.mongodb.net)!');
-    await syncFromMongo();
-  } catch (err) {
-    console.warn('⚠️ MongoDB Atlas connection notice (using fallback store):', err.message);
-    isMongoConnected = false;
-    ensureLocalDbExists();
-    try {
-      if (fs.existsSync(DB_PATH)) {
-        memoryStore = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-      }
-    } catch (e) {
-      memoryStore = JSON.parse(JSON.stringify(defaultData));
-    }
+    return true;
   }
+  if (!mongoConnectPromise) {
+    mongoConnectPromise = (async () => {
+      try {
+        console.log('⏳ Connecting to MongoDB Atlas cluster...');
+        await mongoose.connect(MONGODB_URI, {
+          serverSelectionTimeoutMS: 10000
+        });
+        isMongoConnected = true;
+        console.log('🚀 Connected to MongoDB Atlas Cluster (smartasys.e5pujmm.mongodb.net)!');
+        await syncFromMongo();
+        return true;
+      } catch (err) {
+        console.warn('⚠️ MongoDB Atlas connection notice (using fallback store):', err.message);
+        isMongoConnected = false;
+        ensureLocalDbExists();
+        try {
+          if (fs.existsSync(DB_PATH)) {
+            memoryStore = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+          }
+        } catch (e) {
+          memoryStore = JSON.parse(JSON.stringify(defaultData));
+        }
+        return false;
+      } finally {
+        mongoConnectPromise = null;
+      }
+    })();
+  }
+  return await mongoConnectPromise;
+}
+
+async function connectMongo() {
+  return await ensureMongoConnected();
 }
 
 function saveLocalDb(data) {
@@ -206,43 +225,45 @@ function getDb() {
   return memoryStore;
 }
 
-function saveDb(data) {
+async function saveDb(data) {
   memoryStore = data;
   saveLocalDb(data);
 
-  if (isMongoConnected) {
-    (async () => {
-      try {
-        for (const s of data.students) {
-          await Student.findOneAndUpdate({ id: s.id }, s, { upsert: true, new: true });
-        }
-        for (const a of data.attendance) {
-          await Attendance.findOneAndUpdate({ id: a.id }, a, { upsert: true, new: true });
-        }
-        await Settings.findOneAndUpdate(
-          {},
-          {
-            allowedIpRanges: data.settings.allowedIpRanges,
-            allowAnyIpForDemo: data.settings.allowAnyIpForDemo,
-            presentCutoff: data.settings.presentCutoff,
-            lateCutoff: data.settings.lateCutoff,
-            autoAbsentTime: data.settings.autoAbsentTime,
-            simulatedTime: data.settings.simulatedTime,
-            adminEmail: data.admin?.email,
-            adminPassword: data.admin?.password,
-            adminName: data.admin?.name
-          },
-          { upsert: true }
-        );
-      } catch (err) {
-        console.error('Error persisting to MongoDB Atlas:', err);
+  await ensureMongoConnected();
+
+  if (isMongoConnected || mongoose.connection.readyState === 1) {
+    try {
+      for (const s of data.students) {
+        await Student.findOneAndUpdate({ id: s.id }, s, { upsert: true, new: true });
       }
-    })();
+      for (const a of data.attendance) {
+        await Attendance.findOneAndUpdate({ id: a.id }, a, { upsert: true, new: true });
+      }
+      await Settings.findOneAndUpdate(
+        {},
+        {
+          allowedIpRanges: data.settings.allowedIpRanges,
+          allowAnyIpForDemo: data.settings.allowAnyIpForDemo,
+          presentCutoff: data.settings.presentCutoff,
+          lateCutoff: data.settings.lateCutoff,
+          autoAbsentTime: data.settings.autoAbsentTime,
+          simulatedTime: data.settings.simulatedTime,
+          adminEmail: data.admin?.email,
+          adminPassword: data.admin?.password,
+          adminName: data.admin?.name
+        },
+        { upsert: true }
+      );
+      console.log('💾 Successfully saved and persisted data to MongoDB Atlas!');
+    } catch (err) {
+      console.error('Error persisting to MongoDB Atlas:', err);
+    }
   }
 }
 
 module.exports = {
   connectMongo,
+  ensureMongoConnected,
   getDb,
   saveDb,
   isMongoConnected: () => isMongoConnected

@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { getDb, saveDb } = require('../config/db');
 
-function triggerAutoAbsentProcess(io = null) {
+async function triggerAutoAbsentProcess(io = null) {
   const db = getDb();
   const todayStr = new Date().toISOString().split('T')[0];
   const now = new Date();
@@ -40,7 +40,7 @@ function triggerAutoAbsentProcess(io = null) {
   }
 
   if (markedAbsentCount > 0) {
-    saveDb(db);
+    await saveDb(db);
     console.log(`[Cron Job] Marked ${markedAbsentCount} students as Absent for ${todayStr}.`);
 
     if (io) {

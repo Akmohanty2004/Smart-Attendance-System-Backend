@@ -1,6 +1,6 @@
 const { getDb, saveDb } = require('../config/db');
 
-exports.registerStudent = (req, res) => {
+exports.registerStudent = async (req, res) => {
   try {
     const { name, email, password, studentId, course, batch, faceDescriptor } = req.body;
 
@@ -37,7 +37,7 @@ exports.registerStudent = (req, res) => {
       db.students.push(studentRecord);
     }
 
-    saveDb(db);
+    await saveDb(db);
 
     return res.status(200).json({
       success: true,
@@ -118,7 +118,7 @@ exports.getAllStudents = (req, res) => {
   }
 };
 
-exports.deleteStudent = (req, res) => {
+exports.deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
     const db = getDb();
@@ -129,7 +129,7 @@ exports.deleteStudent = (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    saveDb(db);
+    await saveDb(db);
     return res.status(200).json({ success: true, message: `Student ${id} removed successfully.` });
   } catch (err) {
     console.error('Error deleting student:', err);

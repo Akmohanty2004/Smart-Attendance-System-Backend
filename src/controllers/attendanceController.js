@@ -33,7 +33,7 @@ function getFormattedLocalTime(dateObj = new Date()) {
   });
 }
 
-exports.markAttendance = (req, res) => {
+exports.markAttendance = async (req, res) => {
   try {
     const db = getDb();
     const clientIp = getClientIp(req);
@@ -168,7 +168,7 @@ exports.markAttendance = (req, res) => {
       });
     }
 
-    saveDb(db);
+    await saveDb(db);
 
     // 6. Broadcast Socket event
     const io = req.app.get('io');
@@ -191,16 +191,16 @@ exports.markAttendance = (req, res) => {
   }
 };
 
-exports.calculateStatsHelper = (db) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+exports.calculateStatsHelper = (db, targetDate = null) => {
+  const dateStr = targetDate || new Date().toISOString().split('T')[0];
   const totalStudents = db.students.length;
-  const todayRecords = db.attendance.filter(a => a.date === todayStr);
+  const targetRecords = db.attendance.filter(a => a.date === dateStr);
 
-  const presentCount = todayRecords.filter(a => a.status === 'Present').length;
-  const lateCount = todayRecords.filter(a => a.status === 'Late').length;
-  const absentCount = todayRecords.filter(a => a.status === 'Absent').length;
+  const presentCount = targetRecords.filter(a => a.status === 'Present').length;
+  const lateCount = targetRecords.filter(a => a.status === 'Late').length;
+  const absentCount = targetRecords.filter(a => a.status === 'Absent').length;
 
-  const markedCount = todayRecords.length;
+  const markedCount = targetRecords.length;
   const unrecordedCount = Math.max(0, totalStudents - markedCount);
 
   // Course breakdown for chart visualizer
@@ -212,7 +212,7 @@ exports.calculateStatsHelper = (db) => {
     courseMap[s.course].total++;
   }
 
-  for (const r of todayRecords) {
+  for (const r of targetRecords) {
     if (courseMap[r.course]) {
       if (r.status === 'Present') courseMap[r.course].present++;
       if (r.status === 'Late') courseMap[r.course].late++;
@@ -226,7 +226,7 @@ exports.calculateStatsHelper = (db) => {
     lateCount,
     absentCount,
     unrecordedCount,
-    date: todayStr,
+    date: dateStr,
     effectiveTime: db.settings.simulatedTime || 'Live System Clock',
     courseBreakdown: Object.values(courseMap)
   };
@@ -254,7 +254,7 @@ exports.getDailyAttendance = (req, res) => {
     }
 
     records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const stats = exports.calculateStatsHelper(db);
+    const stats = exports.calculateStatsHelper(db, targetDate);
 
     return res.status(200).json({
       success: true,

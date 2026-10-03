@@ -26,7 +26,7 @@ exports.getNetworkStatus = (req, res) => {
   }
 };
 
-exports.updateSettings = (req, res) => {
+exports.updateSettings = async (req, res) => {
   try {
     const { allowedIpRanges, allowAnyIpForDemo, presentCutoff, lateCutoff, autoAbsentTime, simulatedTime, livenessRequired } = req.body;
     const db = getDb();
@@ -43,7 +43,7 @@ exports.updateSettings = (req, res) => {
     if (simulatedTime !== undefined) db.settings.simulatedTime = simulatedTime;
     if (typeof livenessRequired === 'boolean') db.settings.livenessRequired = livenessRequired;
 
-    saveDb(db);
+    await saveDb(db);
 
     const io = req.app.get('io');
     if (io) {

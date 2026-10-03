@@ -16,6 +16,15 @@ const server = http.createServer(app);
 // Connect to MongoDB Atlas Cluster on startup
 connectMongo();
 
+// Ensure MongoDB Atlas connection before serving API requests
+const { ensureMongoConnected } = require('./config/db');
+app.use('/api', async (req, res, next) => {
+  try {
+    await ensureMongoConnected();
+  } catch (e) {}
+  next();
+});
+
 // CORS configuration for React Vite frontend & client apps
 app.use(cors({
   origin: '*',
