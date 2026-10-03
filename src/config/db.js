@@ -107,12 +107,17 @@ const defaultData = {
 let memoryStore = JSON.parse(JSON.stringify(defaultData));
 
 function ensureLocalDbExists() {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(defaultData, null, 2), 'utf8');
+  if (process.env.VERCEL) return;
+  try {
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(DB_PATH)) {
+      fs.writeFileSync(DB_PATH, JSON.stringify(defaultData, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.warn('Local DB folder check skipped:', err.message);
   }
 }
 
@@ -142,11 +147,11 @@ async function syncFromMongo() {
     memoryStore.students = freshStudents.map(s => s.toObject());
     memoryStore.attendance = freshAttendance.map(a => a.toObject());
     memoryStore.settings = {
-      allowedIpRanges: mongoSettings.allowedIpRanges,
-      allowAnyIpForDemo: mongoSettings.allowAnyIpForDemo,
-      presentCutoff: mongoSettings.presentCutoff,
-      lateCutoff: mongoSettings.lateCutoff,
-      autoAbsentTime: mongoSettings.autoAbsentTime,
+      allowedIpRanges: mongoSettings.allowedIpRanges || defaultData.settings.allowedIpRanges,
+      allowAnyIpForDemo: mongoSettings.allowAnyIpForDemo || false,
+      presentCutoff: mongoSettings.presentCutoff || '09:30',
+      lateCutoff: mongoSettings.lateCutoff || '10:00',
+      autoAbsentTime: mongoSettings.autoAbsentTime || '10:30',
       simulatedTime: mongoSettings.simulatedTime || '',
       livenessRequired: true
     };
@@ -177,7 +182,9 @@ async function connectMongo() {
     isMongoConnected = false;
     ensureLocalDbExists();
     try {
-      memoryStore = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+      if (fs.existsSync(DB_PATH)) {
+        memoryStore = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+      }
     } catch (e) {
       memoryStore = JSON.parse(JSON.stringify(defaultData));
     }
@@ -185,8 +192,14 @@ async function connectMongo() {
 }
 
 function saveLocalDb(data) {
-  ensureLocalDbExists();
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
+  // On Vercel read-only serverless environment, skip writing to disk
+  if (process.env.VERCEL) return;
+  try {
+    ensureLocalDbExists();
+    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('Skipping local file write in serverless environment:', err.message);
+  }
 }
 
 function getDb() {
