@@ -11,6 +11,14 @@ function euclideanDistance(arr1, arr2) {
   return Math.sqrt(sum);
 }
 
+function timeToMinutes(timeStr) {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  return h * 60 + m;
+}
+
 function formatHHMMTo12Hour(hhmmStr) {
   if (!hhmmStr) return '';
   const parts = hhmmStr.split(':');

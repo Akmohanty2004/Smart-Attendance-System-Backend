@@ -229,15 +229,17 @@ async function saveDb(data) {
   memoryStore = data;
   saveLocalDb(data);
 
-  await ensureMongoConnected();
+  try {
+    await ensureMongoConnected();
 
-  if (isMongoConnected || mongoose.connection.readyState === 1) {
-    try {
+    if (isMongoConnected || mongoose.connection.readyState === 1) {
       for (const s of data.students) {
-        await Student.findOneAndUpdate({ id: s.id }, s, { upsert: true, new: true });
+        const { _id, ...studentObj } = s;
+        await Student.findOneAndUpdate({ id: s.id }, studentObj, { upsert: true, new: true });
       }
       for (const a of data.attendance) {
-        await Attendance.findOneAndUpdate({ id: a.id }, a, { upsert: true, new: true });
+        const { _id, ...attendanceObj } = a;
+        await Attendance.findOneAndUpdate({ id: a.id }, attendanceObj, { upsert: true, new: true });
       }
       await Settings.findOneAndUpdate(
         {},
@@ -255,9 +257,9 @@ async function saveDb(data) {
         { upsert: true }
       );
       console.log('💾 Successfully saved and persisted data to MongoDB Atlas!');
-    } catch (err) {
-      console.error('Error persisting to MongoDB Atlas:', err);
     }
+  } catch (err) {
+    console.error('Error persisting to MongoDB Atlas:', err);
   }
 }
 
