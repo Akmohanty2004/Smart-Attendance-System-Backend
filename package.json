@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "AI-Based Smart Attendance System Backend",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "keywords": [
+    "attendance",
+    "face-recognition",
+    "socket.io",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "ip-range-check": "^0.2.1",
+    "jsonfile": "^6.2.1",
+    "mongoose": "^9.10.4",
+    "node-cron": "^4.6.0",
+    "request-ip": "^3.3.0",
+    "socket.io": "^4.8.4"
+  }
+}
