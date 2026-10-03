@@ -5,7 +5,7 @@ function triggerAutoAbsentProcess(io = null) {
   const db = getDb();
   const todayStr = new Date().toISOString().split('T')[0];
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+  const timeStr = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: true });
 
   // Get all active registered students
   const registeredStudents = db.students || [];
@@ -62,7 +62,7 @@ function initCronScheduler(io) {
       const db = getDb();
       const autoAbsentTime = db.settings.autoAbsentTime || '10:30';
       const now = new Date();
-      const currentHHMM = now.toTimeString().substring(0, 5);
+      const currentHHMM = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit' });
 
       if (currentHHMM === autoAbsentTime) {
         console.log(`[Cron Job Triggered] Time matches auto-absent cutoff: ${currentHHMM}`);

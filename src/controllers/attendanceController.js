@@ -11,9 +11,26 @@ function euclideanDistance(arr1, arr2) {
   return Math.sqrt(sum);
 }
 
-function timeToMinutes(timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  return h * 60 + m;
+function formatHHMMTo12Hour(hhmmStr) {
+  if (!hhmmStr) return '';
+  const parts = hhmmStr.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1] || '0', 10);
+  if (isNaN(h)) return hhmmStr;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  const padM = String(m).padStart(2, '0');
+  const padH = String(displayH).padStart(2, '0');
+  return `${padH}:${padM} ${period}`;
+}
+
+function getFormattedLocalTime(dateObj = new Date()) {
+  return dateObj.toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 exports.markAttendance = (req, res) => {
@@ -92,10 +109,10 @@ exports.markAttendance = (req, res) => {
       });
     }
 
-    // 4. Time-based Attendance Logic (Supports Evaluator Time Machine Simulation)
+    // 4. Time-based Attendance Logic (Supports Evaluator Time Machine Simulation & IST Timezone)
     const now = new Date();
-    // If evaluator set simulated time (e.g. "09:45"), use that for time comparison!
-    const effectiveTimeStr = db.settings.simulatedTime || now.toTimeString().substring(0, 5);
+    const currentIST_HHMM = getFormattedLocalTime(now);
+    const effectiveTimeStr = db.settings.simulatedTime || currentIST_HHMM;
     const currentMins = timeToMinutes(effectiveTimeStr);
 
     const presentMins = timeToMinutes(db.settings.presentCutoff || '09:30');
@@ -112,15 +129,15 @@ exports.markAttendance = (req, res) => {
         return res.status(400).json({
           success: false,
           errorType: 'ATTENDANCE_CLOSED',
-          message: `Attendance is closed for today. Cutoff time was ${db.settings.lateCutoff || '10:00 AM'}. Current system time: ${effectiveTimeStr}`
+          message: `Attendance is closed for today. Cutoff time was ${formatHHMMTo12Hour(db.settings.lateCutoff || '10:00')}. Current system time: ${formatHHMMTo12Hour(effectiveTimeStr)}`
         });
       }
     }
 
     // Format display time
     const displayTime = db.settings.simulatedTime 
-      ? effectiveTimeStr + ' (Simulated)'
-      : now.toLocaleTimeString('en-US', { hour12: true });
+      ? formatHHMMTo12Hour(effectiveTimeStr) + ' (Simulated)'
+      : now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: true });
 
     // 5. Save Attendance Record
     const attendanceRecord = {
