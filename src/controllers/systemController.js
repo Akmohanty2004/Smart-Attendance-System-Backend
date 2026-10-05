@@ -32,7 +32,7 @@ exports.updateSettings = async (req, res) => {
     const db = getDb();
 
     if (Array.isArray(allowedIpRanges)) {
-      db.settings.allowedIpRanges = allowedIpRanges;
+      db.settings.allowedIpRanges = allowedIpRanges.map(s => String(s).trim()).filter(Boolean);
     }
     if (typeof allowAnyIpForDemo === 'boolean') {
       db.settings.allowAnyIpForDemo = allowAnyIpForDemo;
