@@ -147,8 +147,10 @@ async function syncFromMongo() {
     memoryStore.students = freshStudents.map(s => s.toObject());
     memoryStore.attendance = freshAttendance.map(a => a.toObject());
     memoryStore.settings = {
-      allowedIpRanges: mongoSettings.allowedIpRanges || defaultData.settings.allowedIpRanges,
-      allowAnyIpForDemo: mongoSettings.allowAnyIpForDemo || false,
+      allowedIpRanges: (mongoSettings.allowedIpRanges && mongoSettings.allowedIpRanges.length > 0)
+        ? Array.from(mongoSettings.allowedIpRanges)
+        : defaultData.settings.allowedIpRanges,
+      allowAnyIpForDemo: typeof mongoSettings.allowAnyIpForDemo === 'boolean' ? mongoSettings.allowAnyIpForDemo : false,
       presentCutoff: mongoSettings.presentCutoff || '09:30',
       lateCutoff: mongoSettings.lateCutoff || '10:00',
       autoAbsentTime: mongoSettings.autoAbsentTime || '10:30',
@@ -244,17 +246,19 @@ async function saveDb(data) {
       await Settings.findOneAndUpdate(
         {},
         {
-          allowedIpRanges: data.settings.allowedIpRanges,
-          allowAnyIpForDemo: data.settings.allowAnyIpForDemo,
-          presentCutoff: data.settings.presentCutoff,
-          lateCutoff: data.settings.lateCutoff,
-          autoAbsentTime: data.settings.autoAbsentTime,
-          simulatedTime: data.settings.simulatedTime,
-          adminEmail: data.admin?.email,
-          adminPassword: data.admin?.password,
-          adminName: data.admin?.name
+          $set: {
+            allowedIpRanges: data.settings.allowedIpRanges,
+            allowAnyIpForDemo: data.settings.allowAnyIpForDemo,
+            presentCutoff: data.settings.presentCutoff,
+            lateCutoff: data.settings.lateCutoff,
+            autoAbsentTime: data.settings.autoAbsentTime,
+            simulatedTime: data.settings.simulatedTime,
+            adminEmail: data.admin?.email,
+            adminPassword: data.admin?.password,
+            adminName: data.admin?.name
+          }
         },
-        { upsert: true }
+        { upsert: true, new: true }
       );
       console.log('💾 Successfully saved and persisted data to MongoDB Atlas!');
     }
